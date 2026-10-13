@@ -3643,8 +3643,6 @@
                 <input type="file" id="housingExcelInput" accept=".xlsx, .xls, .xlsb" style="display: none;" onchange="importHousingExcel(event)">
                 <div id="sidebarHousingSection">
                 <hr class="text-secondary opacity-25">
-                <button class="btn text-start sidebar-tab text-primary fw-bold" style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.2);"
-                    onclick="document.getElementById('housingExcelInput').click()"><i class="fas fa-file-import me-2 text-primary"></i><span class="btn-text"> فتح ملف</span></button>
                 <button class="btn text-start sidebar-tab text-info fw-bold" style="background:rgba(13,202,240,0.08);border:1px solid rgba(13,202,240,0.2);"
                     onclick="openBulkUpdateModal()"><i class="fas fa-pen-alt me-2 text-info"></i><span class="btn-text"> تحديث جماعي</span></button>
                 <button class="btn text-start sidebar-tab text-success fw-bold" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);"
@@ -3678,8 +3676,6 @@
                 <div class="nav flex-column gap-2">
                     <div id="sidebarHousingSectionMobile">
                     <hr class="text-secondary opacity-25">
-                    <button class="btn text-start sidebar-tab text-primary fw-bold" style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.2);"
-                        onclick="document.getElementById('housingExcelInput').click()"><i class="fas fa-file-import me-2 text-primary"></i><span class="btn-text"> فتح ملف</span></button>
                     <button class="btn text-start sidebar-tab text-info fw-bold" style="background:rgba(13,202,240,0.08);border:1px solid rgba(13,202,240,0.2);"
                         onclick="openBulkUpdateModal()"><i class="fas fa-pen-alt me-2 text-info"></i><span class="btn-text"> تحديث جماعي</span></button>
                     <button class="btn text-start sidebar-tab text-success fw-bold" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);"
@@ -3990,7 +3986,7 @@
                                 </button>
 <button type="button"
                                     class="btn btn-success rounded-pill fw-bold shadow-sm flex-shrink-0 px-3"
-                                    onclick="openHousingAddShipmentModal()">
+                                    onclick="openHousingAddChoice()">
                                     <i class="fas fa-plus me-1"></i> إضافة
                                 </button>
                                 <input id="housingSearch" type="text"
@@ -8295,6 +8291,26 @@
             'ملاحظات', 'التاريخ', 'الصافي', 'الشحن', 'عدد', 'تقفيل', 'عمولة المندوب',
             'الموظف', 'نوع المندوب', 'حدث', 'اليومية'
         ];
+
+        /* زر «إضافة»: اختيار بين إدخال شحنة يدويًا أو فتح ملف إكسل (كان «فتح ملف» زرًا منفصلًا في السايدبار) */
+        function openHousingAddChoice() {
+            Swal.fire({
+                title: 'إضافة',
+                html: `
+                    <div class="d-flex flex-column gap-3 mt-2">
+                        <button class="btn btn-success btn-lg rounded-pill fw-bold px-4 py-3 shadow-sm" onclick="Swal.close();openHousingAddShipmentModal()" style="font-size:1rem;">
+                            <i class="fas fa-plus me-2"></i> إدخال شحنة
+                        </button>
+                        <button class="btn btn-primary btn-lg rounded-pill fw-bold px-4 py-3 shadow-sm" onclick="document.getElementById('housingExcelInput').click();Swal.close();" style="font-size:1rem;">
+                            <i class="fas fa-file-import me-2"></i> فتح ملف إكسل
+                        </button>
+                    </div>
+                `,
+                showConfirmButton: false,
+                showCloseButton: true,
+                customClass: { popup: 'rounded-4' }
+            });
+        }
 
         function showExportOptions() {
             const filteredCount = getHousingFilteredShipments().length;
