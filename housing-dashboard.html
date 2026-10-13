@@ -8463,6 +8463,158 @@
             XLSX.writeFile(wb, `جرد_يومي_${targetDate.replace(/\//g, '-')}.xlsx`);
         }
 
+        /* نافذة مطابقة أعمدة ملف الإكسل قبل الاستيراد: اختيار ورقة العمل، تحرير اسم العمود، تغيير الحقل المقابل، أو تجاهل التحديد.
+           لا تعتمد على اسم ورقة معيّن (Sheet1). تُرجع { sheetName, rows, keys } أو null عند الإلغاء. */
+        async function housingImportColumnMappingDialog({ workbook, defaultSheet, importColumnOrder, normalizeHeader }) {
+            const sheetNames = workbook.SheetNames || [];
+            const readRows = (name) => {
+                const ws = workbook.Sheets[name];
+                return ws ? XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) : [];
+            };
+            let curSheet = defaultSheet;
+            let curRows = readRows(curSheet);
+            let curWidth = 0;
+            let cols = [];
+            const autoKey = (header, index) => {
+                const h = normalizeHeader(header);
+                if (!h) return '';
+                const byPosition = importColumnOrder[index];
+                if (byPosition && byPosition.labels.some(l => normalizeHeader(l) === h)) return byPosition.key;
+                const byLabel = importColumnOrder.find(it => it.labels.some(l => normalizeHeader(l) === h));
+                return byLabel ? byLabel.key : '';
+            };
+            const analyze = () => {
+                const head = Array.isArray(curRows[0]) ? curRows[0] : [];
+                let width = head.length;
+                for (let r = 1; r < curRows.length; r++) {
+                    const row = curRows[r];
+                    if (Array.isArray(row) && row.length > width) width = row.length;
+                }
+                const sample = new Array(width).fill('');
+                const filled = new Array(width).fill(false);
+                for (let r = 1; r < curRows.length; r++) {
+                    const row = curRows[r];
+                    if (!Array.isArray(row)) continue;
+                    for (let c = 0; c < width; c++) {
+                        if (filled[c]) continue;
+                        const v = row[c];
+                        if (v != null && String(v).trim() !== '') { filled[c] = true; sample[c] = String(v).trim(); }
+                    }
+                }
+                cols = [];
+                let blank = 0;
+                for (let c = 0; c < width; c++) {
+                    const header = normalizeHeader(head[c]);
+                    if (!header && !filled[c]) { blank++; continue; }
+                    cols.push({ ci: c, header, sample: sample[c], hasData: filled[c], key: autoKey(header, c) });
+                }
+                curWidth = width;
+                return { blank };
+            };
+            const fieldOptions = (selected) =>
+                '<option value="">— تجاهل هذا العمود —</option>' +
+                importColumnOrder.map(it => `<option value="${escapeAttr(it.key)}"${it.key === selected ? ' selected' : ''}>${escapeHtml(it.key)}</option>`).join('');
+            const markDup = () => {
+                const selects = Array.from(document.querySelectorAll('#impMapBody .imp-map-key'));
+                const seen = {};
+                selects.forEach(s => { if (s.value) seen[s.value] = (seen[s.value] || 0) + 1; });
+                selects.forEach(s => s.classList.toggle('is-invalid', !!s.value && seen[s.value] > 1));
+            };
+            const renderBody = () => {
+                const meta = analyze();
+                const body = document.getElementById('impMapBody');
+                const warn = document.getElementById('impMapWarn');
+                const count = document.getElementById('impMapCount');
+                if (!body) return;
+                body.innerHTML = cols.map(c => `
+                    <tr data-ci="${c.ci}">
+                        <td class="text-secondary">${c.ci + 1}</td>
+                        <td><input type="text" class="form-control imp-map-name" style="font-size:0.78rem;" value="${escapeAttr(c.header)}" placeholder="(بدون عنوان)"></td>
+                        <td class="text-secondary" style="max-width:140px;font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" dir="auto" title="${escapeAttr(c.sample)}">${c.hasData ? escapeHtml(c.sample.slice(0, 24)) : '<span class="badge bg-warning text-dark">فارغ</span>'}</td>
+                        <td><select class="form-select imp-map-key" style="font-size:0.78rem;">${fieldOptions(c.key)}</select></td>
+                    </tr>`).join('') || '<tr><td colspan="4" class="text-center text-secondary py-3">ورقة العمل فارغة</td></tr>';
+                const emptyData = cols.filter(c => !c.hasData && c.header).map(c => escapeHtml(c.header));
+                const parts = [];
+                if (emptyData.length) parts.push('أعمدة بدون بيانات: <b>' + emptyData.join('، ') + '</b>');
+                if (meta.blank) parts.push(meta.blank + ' عمود فارغ تمامًا (مخفي)');
+                if (warn) warn.innerHTML = parts.length
+                    ? `<div class="alert alert-warning py-1 px-2 small mb-2"><i class="fas fa-triangle-exclamation me-1"></i>${parts.join(' — ')}</div>` : '';
+                if (count) count.textContent = Math.max(0, curRows.length - 1) + ' صف';
+                markDup();
+            };
+            const collectKeys = () => {
+                const keys = new Array(curWidth).fill('');
+                document.querySelectorAll('#impMapBody tr[data-ci]').forEach(tr => {
+                    keys[Number(tr.dataset.ci)] = tr.querySelector('.imp-map-key').value || '';
+                });
+                return keys;
+            };
+            const sheetBlock = sheetNames.length > 1
+                ? `<div class="mb-2"><label class="form-label small fw-bold mb-1" style="font-size:0.75rem;">ورقة العمل</label>` +
+                  `<select id="impMapSheet" class="form-select" style="font-size:0.8rem;">${sheetNames.map(n => `<option value="${escapeAttr(n)}"${n === curSheet ? ' selected' : ''}>${escapeHtml(n)}</option>`).join('')}</select></div>`
+                : `<div class="small text-secondary mb-2">ورقة العمل: <b>${escapeHtml(curSheet)}</b></div>`;
+
+            const result = await Swal.fire({
+                title: 'مطابقة أعمدة الملف',
+                html: `<div class="text-start">` +
+                        sheetBlock +
+                        `<div class="small text-secondary mb-2">عدّل اسم العمود أو اختر الحقل الذي سيُرفع إليه، أو اختر «تجاهل» لاستبعاده. <span id="impMapCount" class="fw-bold"></span></div>` +
+                        `<div id="impMapWarn"></div>` +
+                        `<div class="table-responsive" style="max-height:340px;">` +
+                            `<table class="table table-sm table-bordered align-middle small mb-0">` +
+                                `<thead class="table-light"><tr><th style="width:38px;">#</th><th>اسم العمود في الملف</th><th>عيّنة</th><th>يُرفع كـ</th></tr></thead>` +
+                                `<tbody id="impMapBody"></tbody>` +
+                            `</table>` +
+                        `</div>` +
+                      `</div>`,
+                width: 820,
+                showCancelButton: true,
+                showDenyButton: true,
+                confirmButtonText: '<i class="fas fa-check me-1"></i> اعتماد التحديد والمتابعة',
+                denyButtonText: 'تجاهل التحديد (رفع الأعمدة المعروفة تلقائيًا)',
+                cancelButtonText: 'إلغاء',
+                confirmButtonColor: '#16a34a',
+                denyButtonColor: '#64748b',
+                allowOutsideClick: false,
+                focusConfirm: false,
+                customClass: { popup: 'housing-review-modal' },
+                didOpen: () => {
+                    renderBody();
+                    const body = document.getElementById('impMapBody');
+                    if (body) body.addEventListener('change', (e) => {
+                        const tr = e.target.closest('tr[data-ci]');
+                        if (!tr) return;
+                        if (e.target.classList.contains('imp-map-name')) {
+                            const k = autoKey(e.target.value, Number(tr.dataset.ci));
+                            if (k) tr.querySelector('.imp-map-key').value = k;
+                        }
+                        markDup();
+                    });
+                    const sheetSel = document.getElementById('impMapSheet');
+                    if (sheetSel) sheetSel.addEventListener('change', () => {
+                        curSheet = sheetSel.value;
+                        curRows = readRows(curSheet);
+                        renderBody();
+                    });
+                },
+                preConfirm: () => {
+                    if (!curRows.length) { Swal.showValidationMessage('ورقة العمل المختارة فارغة'); return false; }
+                    const keys = collectKeys();
+                    const used = keys.filter(Boolean);
+                    if (!used.includes('كود الشحنة')) { Swal.showValidationMessage('اختر عمودًا للحقل «كود الشحنة»'); return false; }
+                    const dup = used.find((k, i) => used.indexOf(k) !== i);
+                    if (dup) { Swal.showValidationMessage('الحقل «' + dup + '» مختار لأكثر من عمود'); return false; }
+                    return { sheetName: curSheet, rows: curRows, keys };
+                },
+                preDeny: () => {
+                    const keys = new Array(curWidth).fill('');
+                    cols.forEach(c => { keys[c.ci] = autoKey(c.header, c.ci); });
+                    return { sheetName: curSheet, rows: curRows, keys };
+                }
+            });
+            return (result.isConfirmed || result.isDenied) ? result.value : null;
+        }
+
         async function importHousingExcel(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -8504,17 +8656,18 @@
                 allowEscapeKey: false,
                 showConfirmButton: false,
             });
-            const parseProgressBar = document.getElementById('parse-progress-bar');
-            const parseProgressText = document.getElementById('parse-progress-text');
-            const parseProgressCount = document.getElementById('parse-progress-count');
+            let parseProgressBar = document.getElementById('parse-progress-bar');
+            let parseProgressText = document.getElementById('parse-progress-text');
+            let parseProgressCount = document.getElementById('parse-progress-count');
 
             try {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const sheet = workbook.Sheets['Sheet1'] || workbook.Sheets[workbook.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+                    /* لا يُشترط اسم ورقة معيّن: الافتراضي Sheet1 إن كانت بها بيانات، وإلا أول ورقة بها بيانات (ويمكن تغييرها من نافذة المطابقة) */
+                    let sheetName = (workbook.Sheets['Sheet1'] && workbook.Sheets['Sheet1']['!ref']) ? 'Sheet1' : (workbook.SheetNames.find(n => workbook.Sheets[n] && workbook.Sheets[n]['!ref']) || workbook.SheetNames[0]);
+                    let rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '' });
 
                     if (parseProgressBar) parseProgressBar.style.width = '20%';
                     if (parseProgressText) parseProgressText.innerText = 'جاري تحليل بيانات الملف...';
@@ -8569,8 +8722,8 @@
                         }
                         return normalized;
                     };
-                    const headerRow = Array.isArray(rows[0]) ? rows[0].map(normalizeHeader) : [];
-                    const columnKeysByIndex = headerRow.map((header, index) => {
+                    let headerRow = Array.isArray(rows[0]) ? rows[0].map(normalizeHeader) : [];
+                    let columnKeysByIndex = headerRow.map((header, index) => {
                         const byPosition = importColumnOrder[index];
                         if (byPosition && byPosition.labels.some(label => normalizeHeader(label) === header)) {
                             return byPosition.key;
@@ -8581,6 +8734,28 @@
                         return byLabel ? byLabel.key : '';
                     });
 
+                    /* نافذة مطابقة الأعمدة: اختيار الورقة / تحرير الأسماء / تغيير الحقل / تجاهل التحديد */
+                    const _mapRes = await housingImportColumnMappingDialog({ workbook, defaultSheet: sheetName, importColumnOrder, normalizeHeader });
+                    if (!_mapRes) { Swal.close(); window.housingWriteOperationActive = false; return; }
+                    sheetName = _mapRes.sheetName;
+                    rows = _mapRes.rows;
+                    columnKeysByIndex = _mapRes.keys;
+                    Swal.fire({
+                        title: 'جاري فتح ومعالجة الملف...',
+                        html: `
+                            <div class="progress mt-3" style="height: 20px;">
+                                <div id="parse-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 20%"></div>
+                            </div>
+                            <div class="mt-3 fs-6 fw-bold" id="parse-progress-text">جاري تحليل بيانات الملف...</div>
+                            <div class="small text-muted mt-1" id="parse-progress-count"></div>
+                        `,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                    });
+                    parseProgressBar = document.getElementById('parse-progress-bar');
+                    parseProgressText = document.getElementById('parse-progress-text');
+                    parseProgressCount = document.getElementById('parse-progress-count');
                     const orderIdIndex = columnKeysByIndex.findIndex(key => key === 'كود الشحنة');
                     if (orderIdIndex === -1) {
                         Swal.close();
