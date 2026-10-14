@@ -8,6 +8,7 @@
     <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="expires" content="0">
     <meta http-equiv="Permissions-Policy" content="geolocation=(self), camera=(self), microphone=(), payment=(), usb=(), browsing-topics=()">
+    <link rel="icon" type="image/svg+xml" href="assets/img/logo-mark.svg">
     <title>تسجيل الدخول | نظام الشحن الاحترافي</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -91,6 +92,8 @@
             box-shadow: 0 18px 44px rgba(22, 163, 74, 0.32);
         }
 
+        .login-logo { width: 7.5rem; height: 7.5rem; display: block; filter: drop-shadow(0 16px 30px rgba(11, 42, 91, 0.35)); }
+
         .soft-auth-input {
             min-height: 3.45rem;
             border-radius: 1rem;
@@ -154,9 +157,7 @@
             <div class="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/10"></div>
 
             <div class="text-center mb-8 relative">
-                <div class="brand-orb flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-truck-fast text-white text-4xl"></i>
-                </div>
+                <img src="assets/img/logo-mark.svg" alt="HALKK" class="login-logo mx-auto mb-4">
                 <h1 id="loginBrand" class="text-3xl login-brand mb-2">HALKK</h1>
             </div>
 

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400" role="img" aria-label="HALKK">
+<defs>
+  <linearGradient id="hkBg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#1b4b9b"/><stop offset="1" stop-color="#071d44"/>
+  </linearGradient>
+  <linearGradient id="hkRed" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ff5a4d"/><stop offset="1" stop-color="#d11f2e"/>
+  </linearGradient>
+  <linearGradient id="hkTrail" gradientUnits="userSpaceOnUse" x1="170" y1="0" x2="30" y2="0">
+    <stop offset="0" stop-color="#ff5a4d" stop-opacity="1"/><stop offset="1" stop-color="#ff5a4d" stop-opacity="0"/>
+  </linearGradient>
+  <clipPath id="hkClip"><circle cx="200" cy="200" r="184"/></clipPath>
+</defs>
+<circle cx="200" cy="200" r="190" fill="url(#hkBg)"/>
+<circle cx="200" cy="200" r="190" fill="none" stroke="#ffffff" stroke-opacity=".18" stroke-width="3"/>
+<g clip-path="url(#hkClip)" fill="none" stroke="#9db8ea" stroke-opacity=".38" stroke-width="3">
+  <circle cx="200" cy="170" r="128"/>
+  <ellipse cx="200" cy="170" rx="128" ry="50"/>
+  <ellipse cx="200" cy="170" rx="128" ry="95" stroke-opacity=".0"/>
+  <ellipse cx="200" cy="170" rx="52" ry="128"/>
+  <ellipse cx="200" cy="170" rx="95" ry="128" stroke-opacity=".0"/>
+  <line x1="200" y1="42" x2="200" y2="298"/>
+  <line x1="72" y1="170" x2="328" y2="170"/>
+  <path d="M86 118 Q200 138 314 118" stroke-opacity=".25"/>
+  <path d="M86 222 Q200 202 314 222" stroke-opacity=".25"/>
+</g>
+<!-- orbit swoosh -->
+<path d="M34 268 Q205 380 372 226 Q222 332 34 268 Z" fill="url(#hkRed)"/>
+<!-- speed trails -->
+<g stroke="url(#hkTrail)" stroke-linecap="round">
+  <line x1="30" y1="214" x2="170" y2="214" stroke-width="8"/>
+  <line x1="50" y1="238" x2="172" y2="238" stroke-width="6"/>
+  <line x1="36" y1="262" x2="150" y2="262" stroke-width="4"/>
+  <line x1="70" y1="190" x2="176" y2="190" stroke-width="4"/>
+</g>
+<!-- scooter + rider -->
+<g transform="translate(112 84) scale(1.42)">
+  <!-- delivery box -->
+  <rect x="4" y="22" width="52" height="44" rx="7" fill="url(#hkRed)" stroke="#fff" stroke-width="3"/>
+  <rect x="4" y="22" width="52" height="12" rx="6" fill="#fff" fill-opacity=".28"/>
+  <!-- body -->
+  <path d="M30 100 C24 78 48 70 70 72 L112 76 L126 98 L108 104 L74 104 L62 112 Z" fill="url(#hkRed)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+  <!-- front column + handle -->
+  <path d="M112 76 L124 38 L134 38" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M112 78 L122 100" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <path d="M120 100 C132 100 140 108 140 118" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <!-- seat -->
+  <rect x="40" y="62" width="50" height="11" rx="5" fill="#0a2756" stroke="#fff" stroke-width="3"/>
+  <!-- rider -->
+  <path d="M62 62 C58 36 66 22 78 18 L92 22 C94 34 90 44 96 62 L108 78 L94 84 L82 70 L72 68 Z" fill="#ffffff"/>
+  <path d="M90 26 L122 40 L120 48 L88 38 Z" fill="#ffffff"/>
+  <!-- helmet -->
+  <circle cx="82" cy="6" r="15" fill="url(#hkRed)" stroke="#fff" stroke-width="3"/>
+  <path d="M88 -2 C99 -1 100 12 90 14 Z" fill="#0a2756"/>
+  <!-- wheels -->
+  <g>
+    <circle cx="44" cy="120" r="23" fill="#0a2756" stroke="#fff" stroke-width="4"/>
+    <circle cx="44" cy="120" r="9" fill="#fff"/>
+    <circle cx="136" cy="118" r="23" fill="#0a2756" stroke="#fff" stroke-width="4"/>
+    <circle cx="136" cy="118" r="9" fill="#fff"/>
+  </g>
+</g>
+</svg>
