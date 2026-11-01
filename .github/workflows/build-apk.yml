@@ -57,10 +57,12 @@ jobs:
               ./gradlew --no-daemon assembleDebug
             fi
           } 2>&1 | tee "$RUNNER_TEMP/build.log"
-      - name: Publish build log on failure
-        if: failure()
+      - name: Publish build log
+        if: always()
         run: |
-          tail -n 250 "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/tail.txt" || echo "no log" > "$RUNNER_TEMP/tail.txt"
+          echo "job status: ${{ job.status }}" > "$RUNNER_TEMP/status.txt"
+          tail -n 250 "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/tail0.txt" || echo "no log" > "$RUNNER_TEMP/tail0.txt"
+          cat "$RUNNER_TEMP/status.txt" "$RUNNER_TEMP/tail0.txt" > "$RUNNER_TEMP/tail.txt"
           git config user.name "ci"; git config user.email "ci@users.noreply.github.com"
           git checkout --orphan ci-logs
           git rm -rf . -q || true
