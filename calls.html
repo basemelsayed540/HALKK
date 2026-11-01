@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مكالمات العملاء</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--tx:#0f172a;--mut:#64748b;--bd:#e2e8f0}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1220;--card:#111b2e;--tx:#e5e7eb;--mut:#94a3b8;--bd:#1e293b}}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}
+header{display:flex;align-items:center;gap:10px;padding:14px 16px;position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--bd)}
+header a{color:var(--tx);text-decoration:none;font-size:22px}
+h1{font-size:18px;margin:0;flex:1}
+.bar{display:flex;gap:8px;padding:12px 16px;flex-wrap:wrap}
+.bar select,.bar input{padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-size:15px;flex:1;min-width:120px}
+.item{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin:8px 16px;padding:12px 14px;display:flex;gap:12px;align-items:center}
+.ic{font-size:22px;width:34px;text-align:center}
+.nm{font-weight:700}.sub{color:var(--mut);font-size:13px;margin-top:2px}
+.empty{text-align:center;color:var(--mut);padding:40px 16px;line-height:1.8}
+.in{color:#16a34a}.out{color:#2563eb}.miss{color:#dc2626}
+</style>
+</head>
+<body>
+<header><a href="javascript:history.back()">→</a><h1>مكالمات العملاء</h1></header>
+<div class="bar">
+  <select id="days"><option value="1">اليوم</option><option value="7" selected>آخر 7 أيام</option><option value="30">آخر 30 يوم</option></select>
+  <select id="type"><option value="">كل الأنواع</option><option value="incoming">واردة</option><option value="outgoing">صادرة</option><option value="missed">فائتة</option></select>
+  <input id="q" placeholder="بحث باسم العميل أو الرقم">
+</div>
+<div id="list"></div>
+<script src="assets/js/shipment-config.js"></script>
+<script>
+var T={incoming:['↙','in','واردة'],outgoing:['↗','out','صادرة'],missed:['✖','miss','فائتة'],rejected:['⊘','miss','مرفوضة'],other:['•','','أخرى']};
+var user=null;try{user=JSON.parse(localStorage.getItem('user')||'null')}catch(e){}
+if(!user){location.href='login.html';}
+var N=window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.HalkNative;
+var rows=[];
+function fmt(ms){var d=new Date(ms);return d.toLocaleDateString('ar-EG')+' '+d.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})}
+function dur(s){s=+s||0;if(!s)return 'لم يتم الرد';var m=Math.floor(s/60);return (m?m+' د ':'')+(s%60)+' ث'}
+function esc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function render(){
+  var t=document.getElementById('type').value,q=document.getElementById('q').value.trim();
+  var r=rows.filter(function(x){return (!t||x.type===t)&&(!q||(x.customer||'').indexOf(q)>-1||(x.number||'').indexOf(q)>-1||(x.rep||'').indexOf(q)>-1)});
+  var el=document.getElementById('list');
+  if(!r.length){el.innerHTML='<div class="empty">لا توجد مكالمات مع عملاء النظام في هذه الفترة.<br>التطبيق بيعرض فقط الأرقام اللي بياناتها موجودة في السيستم.</div>';return}
+  el.innerHTML=r.map(function(x){var m=T[x.type]||T.other;
+    return '<div class="item"><div class="ic '+m[1]+'">'+m[0]+'</div><div style="flex:1"><div class="nm">'+esc(x.customer||x.number)+(x.rep?' <span class="sub">— '+esc(x.rep)+'</span>':'')+'</div><div class="sub">'+esc(x.number)+(x.code?' • '+esc(x.code):'')+'</div><div class="sub">'+m[2]+' • '+dur(x.duration)+' • '+fmt(x.date)+'</div></div></div>'}).join('');
+}
+async function load(){
+  var days=+document.getElementById('days').value;
+  document.getElementById('list').innerHTML='<div class="empty">جاري التحميل…</div>';
+  try{
+    if(N&&(user.role==='rep'||user.role==='مندوب فرعي')){
+      var s=await N.getStatus();
+      if(!s.callLog){var a=await N.askPermissions();s=a}
+      if(!s.callLog){document.getElementById('list').innerHTML='<div class="empty">صلاحية سجل المكالمات غير مفعّلة.<br>فعّلها من إعدادات التطبيق.</div>';return}
+      await N.pollNow();
+      var r=await N.getCallLog({days:days});
+      rows=(r.calls||[]);
+    }else{
+      var sb=supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_KEY);
+      var since=new Date(Date.now()-days*86400000).toISOString();
+      var res=await sb.from('call_logs').select('*').gte('call_time',since).order('call_time',{ascending:false}).limit(1000);
+      if(res.error)throw res.error;
+      rows=(res.data||[]).map(function(x){return{number:x.number,customer:x.customer_name,code:x.shipment_code,type:x.call_type,date:new Date(x.call_time).getTime(),duration:x.duration_sec,rep:x.rep_name}});
+    }
+    render();
+  }catch(e){document.getElementById('list').innerHTML='<div class="empty">تعذر التحميل: '+esc(e.message||e)+'</div>'}
+}
+['days'].forEach(function(i){document.getElementById(i).onchange=load});
+document.getElementById('type').onchange=render;document.getElementById('q').oninput=render;
+load();
+</script>
+</body>
+</html>

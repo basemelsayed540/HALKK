@@ -1,0 +1,8 @@
+{
+  "appId": "com.halkk.app",
+  "appName": "HALKK",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}

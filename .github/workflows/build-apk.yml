@@ -1,0 +1,81 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'www/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.json'
+      - 'app-url.txt'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Build
+        env:
+          BUNDLE: ${{ secrets.KEYSTORE_BUNDLE }}
+          RUN_NUMBER: ${{ github.run_number }}
+          OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -o pipefail
+          {
+            set -e
+            if [ -f app-url.txt ]; then APP_URL="$(tr -d '\r\n ' < app-url.txt)"; else APP_URL="https://$(echo "$OWNER" | tr 'A-Z' 'a-z').github.io/$REPO_NAME/"; fi
+            case "$APP_URL" in */) ;; *) APP_URL="$APP_URL/";; esac
+            export APP_URL
+            echo "App URL: $APP_URL"
+            sed -i "s#__APP_URL__#${APP_URL}#g" www/offline.html
+            npm install --no-audit --no-fund
+            node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));c.server={url:process.env.APP_URL,cleartext:false,errorPath:'offline.html'};fs.writeFileSync('capacitor.config.json',JSON.stringify(c,null,2));" 
+            npx cap sync android
+            chmod +x android/gradlew
+            cd android
+            if [ -n "$BUNDLE" ]; then
+              echo "$BUNDLE" | head -n1 | tr -d '\r\n' > "$RUNNER_TEMP/ks.pass"
+              echo "$BUNDLE" | tail -n +2 | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/halkk.keystore"
+              export KEYSTORE_PATH="$RUNNER_TEMP/halkk.keystore"
+              export KEYSTORE_PASSWORD="$(cat "$RUNNER_TEMP/ks.pass")"
+              ./gradlew --no-daemon assembleRelease
+              cp app/build/outputs/apk/release/app-release.apk ../halkk.apk
+            else
+              echo "No KEYSTORE_BUNDLE secret: verifying compile with a debug build only"
+              ./gradlew --no-daemon assembleDebug
+            fi
+          } 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: Publish build log on failure
+        if: failure()
+        run: |
+          tail -n 250 "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/tail.txt" || echo "no log" > "$RUNNER_TEMP/tail.txt"
+          git config user.name "ci"; git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan ci-logs
+          git rm -rf . -q || true
+          cp "$RUNNER_TEMP/tail.txt" build-log.txt
+          git add build-log.txt
+          git commit -qm "build log run ${{ github.run_number }}"
+          git push -f origin ci-logs
+      - name: Publish APK
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f halkk.apk ]; then
+            gh release delete latest-apk --yes --cleanup-tag || true
+            gh release create latest-apk halkk.apk --title "HALKK - APK" --notes "نزّل halkk.apk وثبّته. نسخة رقم ${{ github.run_number }}" --latest
+          else
+            echo "Debug build OK; no release published (add KEYSTORE_BUNDLE secret)."
+          fi
