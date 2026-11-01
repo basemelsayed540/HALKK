@@ -380,7 +380,6 @@ function getStoredSessionToken() {
 }
 
 function clearStoredUserSession(redirectTo = 'login.html') {
-    try { if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.HalkNative) Capacitor.Plugins.HalkNative.clearUser(); } catch (e) {}
     localStorage.removeItem('user');
     localStorage.removeItem(CONFIG.SESSION_TOKEN_STORAGE_KEY);
     if (window.location.pathname.split('/').pop() !== redirectTo) {
