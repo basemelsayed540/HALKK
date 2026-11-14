@@ -1,0 +1,28 @@
+{
+  "name": "halkk-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HALKK Windows shell (loads the hosted web app)",
+  "author": "HALKK",
+  "main": "main.js",
+  "scripts": {
+    "dist": "electron-builder --win portable --ia32 --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "22.3.27",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "com.halkk.desktop",
+    "productName": "HALKK",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "offline.html", "app-url.json", "build/icon.png"],
+    "compression": "maximum",
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [{ "target": "portable", "arch": ["ia32", "x64"] }],
+      "signAndEditExecutable": true
+    },
+    "portable": { "artifactName": "HALKK-${arch}.exe" }
+  }
+}

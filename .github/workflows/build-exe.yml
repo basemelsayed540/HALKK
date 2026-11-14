@@ -1,0 +1,59 @@
+name: Build Windows EXE
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'app-url.txt'
+      - '.github/workflows/build-exe.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -o pipefail
+          {
+            set -e
+            if [ -f app-url.txt ]; then APP_URL="$(tr -d '\r\n ' < app-url.txt)"; else APP_URL="https://$(echo "$OWNER" | tr 'A-Z' 'a-z').github.io/$REPO_NAME/"; fi
+            case "$APP_URL" in */) ;; *) APP_URL="$APP_URL/";; esac
+            echo "App URL: $APP_URL"
+            cd desktop
+            node -e "require('fs').writeFileSync('app-url.json', JSON.stringify({url: process.argv[1]}))" "$APP_URL"
+            npm install --no-audit --no-fund
+            npm run dist
+            ls -la dist
+          } 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: Publish build log
+        if: always()
+        run: |
+          echo "job status: ${{ job.status }}" > "$RUNNER_TEMP/status.txt"
+          tail -n 200 "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/tail0.txt" || echo "no log" > "$RUNNER_TEMP/tail0.txt"
+          cat "$RUNNER_TEMP/status.txt" "$RUNNER_TEMP/tail0.txt" > "$RUNNER_TEMP/tail.txt"
+          git config user.name "ci"; git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan ci-logs-exe
+          git rm -rf . -q || true
+          cp "$RUNNER_TEMP/tail.txt" build-log.txt
+          git add build-log.txt
+          git commit -qm "exe build log run ${{ github.run_number }}"
+          git push -f origin ci-logs-exe
+      - name: Publish EXE
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-exe --yes --cleanup-tag || true
+          gh release create latest-exe desktop/dist/HALKK-x64.exe desktop/dist/HALKK-ia32.exe --title "HALKK - Windows EXE" --notes "HALKK-ia32.exe: يعمل على كل أنظمة ويندوز 7 وما بعده (32 و64 بت) وأنسب للأجهزة الضعيفة. HALKK-x64.exe: لأجهزة 64 بت. ملف واحد بدون تثبيت. نسخة رقم ${{ github.run_number }}" --latest=false
