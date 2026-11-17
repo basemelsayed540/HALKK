@@ -1,0 +1,52 @@
+name: Build liteX EXE
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'litex/**'
+      - '.github/workflows/build-litex.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build
+        run: |
+          set -o pipefail
+          {
+            set -e
+            cd litex
+            node test-url.js
+            npm install --no-audit --no-fund
+            npm run dist
+            ls -la dist
+          } 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: Publish build log
+        if: always()
+        run: |
+          echo "job status: ${{ job.status }}" > "$RUNNER_TEMP/status.txt"
+          tail -n 200 "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/tail0.txt" || echo "no log" > "$RUNNER_TEMP/tail0.txt"
+          cat "$RUNNER_TEMP/status.txt" "$RUNNER_TEMP/tail0.txt" > "$RUNNER_TEMP/tail.txt"
+          git config user.name "ci"; git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan ci-logs-litex
+          git rm -rf . -q || true
+          cp "$RUNNER_TEMP/tail.txt" build-log.txt
+          git add build-log.txt
+          git commit -qm "litex build log run ${{ github.run_number }}"
+          git push -f origin ci-logs-litex
+      - name: Publish EXE
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-litex --yes --cleanup-tag || true
+          gh release create latest-litex litex/dist/liteX-x64.exe litex/dist/liteX-ia32.exe --title "liteX - Windows EXE" --notes "liteX-ia32.exe: يعمل على ويندوز 7 وما بعده (32 و64 بت) وأنسب للأجهزة الضعيفة. liteX-x64.exe: لأجهزة 64 بت. ملف واحد بدون تثبيت: افتحه واكتب رابط موقعك. نسخة رقم ${{ github.run_number }}" --latest=false

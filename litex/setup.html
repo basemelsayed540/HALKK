@@ -1,0 +1,34 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>liteX</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1b4b9b,#071d44);font-family:Tahoma,"Segoe UI",Arial,sans-serif;color:#fff;padding:20px}
+.card{width:100%;max-width:520px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:22px;padding:34px 28px;text-align:center}
+.logo{font-size:44px;font-weight:900;letter-spacing:1px}.logo b{color:#ff5a4d}
+p{color:#c7d6f2;line-height:1.8;margin:10px 0 22px;font-size:15px}
+input{width:100%;padding:15px 16px;border-radius:12px;border:2px solid transparent;font-size:16px;direction:ltr;text-align:left;outline:none;background:#fff;color:#0b2a5b}
+input:focus{border-color:#22c55e}
+button{margin-top:16px;width:100%;padding:15px;border:0;border-radius:12px;background:#22c55e;color:#fff;font-size:18px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+.err{margin-top:12px;color:#ffb4ad;font-size:14px;min-height:20px}
+.hint{margin-top:18px;font-size:13px;color:#9fb4dc;line-height:1.9}
+kbd{background:rgba(255,255,255,.15);padding:1px 7px;border-radius:6px;font-family:inherit}
+</style></head><body>
+<div class="card">
+  <div class="logo">lite<b>X</b></div>
+  <p>اكتب رابط الموقع أو رابط المستودع على GitHub وهيتفتح هنا كأنه برنامج على الكمبيوتر.</p>
+  <input id="u" type="text" spellcheck="false" autocomplete="off" placeholder="https://github.com/اسم-الحساب/اسم-المستودع">
+  <div class="err" id="e"></div>
+  <button id="go">فتح</button>
+  <div class="hint">لو كتبت رابط مستودع GitHub، لازم يكون <b>GitHub Pages</b> مفعّل عليه.<br>تقدر تغيّر الرابط في أي وقت بالضغط على <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>U</kbd></div>
+</div>
+<script>
+var u=document.getElementById('u'),e=document.getElementById('e'),b=document.getElementById('go');
+if(window.litex){window.litex.current().then(function(c){if(c)u.value=c;u.focus();u.select();});}
+function go(){
+  if(!window.litex){e.textContent='حصلت مشكلة في التطبيق، اقفله وافتحه تاني';return;}
+  e.textContent='';b.disabled=true;
+  window.litex.save(u.value).then(function(r){b.disabled=false;if(r&&r.error)e.textContent=r.error;}).catch(function(){b.disabled=false;e.textContent='حصلت مشكلة، جرّب تاني';});
+}
+b.onclick=go;u.addEventListener('keydown',function(ev){if(ev.key==='Enter')go();});
+</script></body></html>

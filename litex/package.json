@@ -1,0 +1,28 @@
+{
+  "name": "litex-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "liteX - lightweight Windows shell that opens any web app link you enter",
+  "author": "liteX",
+  "main": "main.js",
+  "scripts": {
+    "dist": "electron-builder --win portable --ia32 --x64 --publish never",
+    "test": "node test-url.js"
+  },
+  "devDependencies": {
+    "electron": "22.3.27",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "com.litex.desktop",
+    "productName": "liteX",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "url.js", "preload.js", "setup.html", "offline.html", "build/icon.png"],
+    "compression": "maximum",
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [{ "target": "portable", "arch": ["ia32", "x64"] }]
+    },
+    "portable": { "artifactName": "liteX-${arch}.exe" }
+  }
+}

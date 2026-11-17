@@ -1,0 +1,13 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>liteX</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#071d44;color:#fff;font-family:Tahoma,Arial,sans-serif;text-align:center;padding:24px}
+button{margin:8px;background:#22c55e;color:#fff;border:0;border-radius:12px;padding:13px 26px;font-size:17px;cursor:pointer}button.s{background:rgba(255,255,255,.15)}
+code{direction:ltr;display:block;margin:10px 0;color:#9fb4dc;word-break:break-all}</style></head>
+<body><h2>تعذّر فتح الموقع</h2><p>اتأكد من الإنترنت ومن صحة الرابط، وجرّب تاني.</p><code id="c"></code>
+<div><button id="r">إعادة المحاولة</button><button class="s" id="ch">تغيير الرابط</button></div>
+<script>
+var q=new URLSearchParams(location.search).get('u')||'';document.getElementById('c').textContent=q;
+document.getElementById('r').onclick=function(){if(window.litex)window.litex.open();};
+document.getElementById('ch').onclick=function(){if(window.litex)window.litex.changeLink();};
+setInterval(function(){if(navigator.onLine&&window.litex)window.litex.open();},10000);
+</script></body></html>
