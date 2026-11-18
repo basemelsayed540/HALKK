@@ -80,6 +80,8 @@
         .dark .role-badge-admin { background: rgba(34, 197, 94,.22); color: #a5b4fc; }
         .dark .role-badge-rep { background: rgba(16,185,129,.2); color: #6ee7b7; }
         .dark .role-badge-follower { background: rgba(14,165,233,.2); color: #7dd3fc; }
+        .role-badge-data { background: rgba(245,158,11,.16); color: #b45309; }
+        .dark .role-badge-data { background: rgba(245,158,11,.22); color: #fcd34d; }
         .dark .role-badge-other { background: rgba(148,163,184,.2); color: #94a3b8; }
 
         .empty-state { text-align: center; padding: 40px 16px; color: #94a3b8; }
@@ -318,6 +320,7 @@
                     <select id="ufRole" class="soft-select">
                         <option value="rep">مندوب</option>
                         <option value="follower">متابعة</option>
+                        <option value="data_entry">داتا انتري</option>
                         <option value="admin">مدير</option>
                     </select>
                 </div>
@@ -1378,15 +1381,61 @@
         // =================================================================
         // 2) ACCOUNTS
         // =================================================================
+        // ---------- Zone (داتا انتري) account sync ----------
+        // حسابات داتا انتري بتتعمل كمان في قاعدة zone (بنفس الإيميل والباسورد) عن طريق دالة محمية بكلمة سر إدارة zone.
+        var ZONE_USERS_FN = 'https://zffdvylqltdktnjmwiaa.supabase.co/functions/v1/zone-users';
+
+        async function getZoneSecret() {
+            var s = '';
+            try { s = sessionStorage.getItem('zoneAdminSecret') || ''; } catch (e) { }
+            if (s) return s;
+            var r = await Swal.fire({
+                title: 'كلمة سر إدارة zone',
+                html: '<div class="text-xs text-slate-500">مطلوبة لإنشاء وتعديل وحذف حسابات داتا انتري. بتتسأل عنها مرة واحدة في الجلسة.</div>',
+                input: 'password',
+                inputAttributes: { autocomplete: 'off' },
+                showCancelButton: true,
+                confirmButtonText: 'تأكيد',
+                cancelButtonText: 'إلغاء',
+                inputValidator: function (v) { return v ? undefined : 'اكتب كلمة السر'; }
+            });
+            if (!r.isConfirmed || !r.value) return '';
+            try { sessionStorage.setItem('zoneAdminSecret', r.value); } catch (e) { }
+            return r.value;
+        }
+
+        async function zoneCall(action, data) {
+            var secret = await getZoneSecret();
+            if (!secret) throw new Error('تم الإلغاء: كلمة سر إدارة zone مطلوبة');
+            var res;
+            try {
+                res = await fetch(ZONE_USERS_FN, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(Object.assign({ action: action, secret: secret }, data || {}))
+                });
+            } catch (netErr) {
+                throw new Error('تعذر الاتصال بخدمة zone، تأكد من الإنترنت');
+            }
+            var j = {};
+            try { j = await res.json(); } catch (e) { }
+            if (res.status === 401) {
+                try { sessionStorage.removeItem('zoneAdminSecret'); } catch (e) { }
+                throw new Error(j.error || 'كلمة سر إدارة zone غير صحيحة');
+            }
+            if (!res.ok) throw new Error(j.error || ('فشل الاتصال بخدمة zone (' + res.status + ')'));
+            return j;
+        }
+
         function roleBadge(role) {
-            var map = { admin: 'مدير', rep: 'مندوب', follower: 'متابعة' };
+            var map = { admin: 'مدير', rep: 'مندوب', follower: 'متابعة', data_entry: 'داتا انتري' };
             var label = map[role] || (role || 'غير معروف');
-            var cls = role === 'admin' ? 'role-badge-admin' : role === 'rep' ? 'role-badge-rep' : role === 'follower' ? 'role-badge-follower' : 'role-badge-other';
+            var cls = role === 'admin' ? 'role-badge-admin' : role === 'rep' ? 'role-badge-rep' : role === 'follower' ? 'role-badge-follower' : role === 'data_entry' ? 'role-badge-data' : 'role-badge-other';
             return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ' + cls + '">' + esc(label) + '</span>';
         }
 
         function renderUserFilters() {
-            var counts = { all: state.users.length, admin: 0, rep: 0, follower: 0 };
+            var counts = { all: state.users.length, admin: 0, rep: 0, follower: 0, data_entry: 0 };
             state.users.forEach(function (u) {
                 if (Object.prototype.hasOwnProperty.call(counts, u.role)) counts[u.role]++;
             });
@@ -1394,7 +1443,8 @@
                 { key: 'all', label: 'الكل (' + enNum(counts.all) + ')' },
                 { key: 'admin', label: 'مدراء (' + enNum(counts.admin) + ')' },
                 { key: 'rep', label: 'مناديب (' + enNum(counts.rep) + ')' },
-                { key: 'follower', label: 'متابعة (' + enNum(counts.follower) + ')' }
+                { key: 'follower', label: 'متابعة (' + enNum(counts.follower) + ')' },
+                { key: 'data_entry', label: 'داتا انتري (' + enNum(counts.data_entry) + ')' }
             ];
             $('userRoleFilterRow').innerHTML = tabs.map(function (t) {
                 return '<button data-role="' + t.key + '" class="filter-chip' + (state.userRoleFilter === t.key ? ' active' : '') + '">' + t.label + '</button>';
@@ -1482,6 +1532,7 @@
             u.approved = next; // تحديث تفاؤلي
             renderUserList();
             try {
+                if (u.role === 'data_entry' && u.email) await zoneCall('setActive', { email: u.email, active: next });
                 var res = await supabaseClient.from(CONFIG.TABLES.USERS).update({ approved: next }).eq('id', u.id);
                 if (res.error) throw res.error;
                 toast('success', next ? 'تم تفعيل الحساب' : 'تم إيقاف الحساب');
@@ -1510,6 +1561,7 @@
                 try {
                     var r = await supabaseClient.from(CONFIG.TABLES.USERS).delete().eq('id', u.id);
                     if (r.error) throw r.error;
+                    if (u.role === 'data_entry' && u.email) { try { await zoneCall('delete', { email: u.email }); } catch (ze) { toast('warning', 'اتحذف الحساب من HALKK لكن حذفه من zone فشل: ' + (ze.message || '')); } }
                     state.users = state.users.filter(function (x) { return String(x.id) !== String(id); });
                     renderUserList();
                     toast('success', 'تم حذف المستخدم');
@@ -1593,22 +1645,32 @@
                 return Swal.fire({ icon: 'warning', title: 'كلمة مرور ضعيفة', text: 'كلمة المرور يجب ألا تقل عن 6 أحرف' });
             }
 
+            if (role === 'data_entry' && !email) {
+                return Swal.fire({ icon: 'warning', title: 'بيانات ناقصة', text: 'البريد الإلكتروني مطلوب لصلاحية داتا انتري (هو اللي بيدخل بيه على zone)' });
+            }
             var submitBtn = $('ufSubmitBtn');
             submitBtn.disabled = true;
             $('ufSubmitLabel').textContent = 'جاري الحفظ...';
 
             try {
                 if (isEdit) {
+                    var prevUser = state.users.find(function (x) { return String(x.id) === String(state.editingUserId); }) || {};
+                    if (role === 'data_entry') await zoneCall('upsert', { email: email, oldEmail: prevUser.role === 'data_entry' ? (prevUser.email || '') : '', password: password || undefined, active: approved });
                     var payload = { username: name, phone: phone, email: email || null, role: role, approved: approved };
                     if (password) payload.password = await hashPasswordIfNeeded(password);
                     var res = await supabaseClient.from(CONFIG.TABLES.USERS).update(payload).eq('id', state.editingUserId);
                     if (res.error) throw res.error;
                     toast('success', 'تم تحديث الحساب');
+                    if (prevUser.role === 'data_entry' && role !== 'data_entry' && prevUser.email) {
+                        try { await zoneCall('delete', { email: prevUser.email }); } catch (ze) { toast('warning', 'اتحدّث الحساب لكن حذف دخوله من zone فشل: ' + (ze.message || '')); }
+                    }
                 } else {
+                    var zoneCreated = false;
+                    if (role === 'data_entry') { var zr = await zoneCall('upsert', { email: email, password: password, active: approved }); zoneCreated = !!(zr && zr.created); }
                     var newHash = await hashPassword(password);
                     var payload = { username: name, phone: phone, email: email || null, role: role, approved: approved, password: newHash };
                     var res = await supabaseClient.from(CONFIG.TABLES.USERS).insert([payload]).select().single();
-                    if (res.error) throw res.error;
+                    if (res.error) { if (zoneCreated) { try { await zoneCall('delete', { email: email }); } catch (e2) { } } throw res.error; }
                     toast('success', 'تم إنشاء الحساب');
                 }
                 await refreshUsersOnly();

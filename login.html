@@ -363,6 +363,15 @@
                     }
                     if (data.role === 'rep' || data.role === 'مندوب فرعي') window.location.href = 'rep-dashboard.html';
                     else if (data.role === 'follower') window.location.href = 'followup-dashboard.html';
+                    else if (data.role === 'data_entry') {
+                        if (!data.email) {
+                            localStorage.removeItem('user'); localStorage.removeItem('sessionToken');
+                            Swal.fire({ icon: 'error', title: 'لا يمكن الدخول', text: 'هذا الحساب ليس له بريد إلكتروني، برجاء التواصل مع المدير' });
+                            return;
+                        }
+                        try { sessionStorage.setItem('zoneHandoff', JSON.stringify({ email: data.email, password: password })); } catch (e) {}
+                        window.location.href = 'zone.html';
+                    }
                     else if (data.role === 'housing') {
                         Swal.fire({
                             icon: 'error',
